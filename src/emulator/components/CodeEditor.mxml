@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ToolWindow xmlns="emulator.components.*" xmlns:mx="http://www.adobe.com/2006/mxml">
+	<mx:Script>
+		<![CDATA[
+			public var uploadFunction:Function;
+			
+			public var maxInstructions:int = 0;
+			
+			private var invalid:Boolean = false;
+			
+			public function clear( ):void {
+				codeBox.text = "";	
+			}
+			
+			private function getInstructions( code:String ):Array {
+				var newCode:String = code;
+				
+				// remove comments
+				// \/\/ escapes two slashes: //, matches everything until the end of a line ($)
+				// g removes all, m forces per-line matching
+				newCode = newCode.replace(/\/\/.*$/gm, '');
+				
+				// replace one or more whitespace chars with a single space
+				newCode = newCode.replace(/\s+/g, ' ');
+				
+				// trim any whitespace off front and back of string
+				newCode = newCode.replace(/^\s*/, "").replace(/\s*$/, "");
+				
+				
+				var instructions:Array = newCode.split(' ');
+				
+				for ( var i:int = 0; i != instructions.length; i++ ) {
+					instructions[i] = parseInt( instructions[i] );
+				}
+				
+				return instructions;
+			}	
+			
+			private function upload( event:Event ):void {
+				uploadFunction( getInstructions( codeBox.text ) );
+			}
+			
+			private function validate( event:Event ):void {
+				var numInstructions:int = getInstructions( codeBox.text ).length;
+				
+				if ( maxInstructions != 0 && numInstructions > maxInstructions ) {
+					invalid = true;
+					codeBox.setStyle( "backgroundColor", 0xffc0c0 );
+				} else if ( invalid ) {
+					invalid = false;
+					codeBox.setStyle( "backgroundColor", "white" );
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:TextArea id="codeBox"
+		width="100%"
+		height="100%"
+		change="validate(event)"
+		/>
+			
+	<mx:Button id="uploadButton"
+		label="Upload"
+		click="upload(event)"
+		/>
+
+		
+</ToolWindow>

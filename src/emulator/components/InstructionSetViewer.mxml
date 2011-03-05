@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ToolWindow xmlns="emulator.components.*" xmlns:mx="http://www.adobe.com/2006/mxml">
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			public var instructionDescriptions:ArrayCollection = new ArrayCollection();
+			
+			
+		]]>
+	</mx:Script>
+	
+	<mx:List dataProvider="{instructionDescriptions}" height="100%" width="100%"/>
+	
+</ToolWindow>

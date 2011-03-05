@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" width="480" height="320" showCloseButton="true" creationComplete="init()">
+
+	<mx:Script>
+		<![CDATA[
+			
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			
+			public function init():void {
+				this.setFocus();
+				this.addEventListener( CloseEvent.CLOSE, close );
+				this.addEventListener( MouseEvent.CLICK, focus );
+				this.addEventListener( KeyboardEvent.KEY_DOWN, keyPress );
+			}
+			
+			private function focus( event:Event ):void { 
+				event.target.setFocus();
+			}
+			
+			private function keyPress( event:KeyboardEvent ):void {
+				if ( event.keyCode == Keyboard.ESCAPE ) {
+					close( event );
+				}	
+			}
+			
+			private function close( event:Event ):void {
+				PopUpManager.removePopUp( this );
+			}
+		]]>
+	</mx:Script>
+	
+</mx:TitleWindow>

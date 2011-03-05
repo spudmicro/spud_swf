@@ -1,0 +1,78 @@
+"SPuD" {
+
+instruction = integer "," integer (":" statement-list | case-list where-clause) ".".
+
+statement-list = statement { ";" statement } [ ";" ].
+
+case-list = case { case }.
+
+case = "case" condition (":" | "?") statement-list.
+
+where-clause = "where" helper-list.
+
+helper-list = helper-statement { ";" helper-statement } [ ";" ].
+
+helper-statement = identifier "=" integer-expression.
+
+statement = 
+	  state-value ("=" | "+=" | "-=") integer-expression 
+	| state-value ("++" | "--")
+	| side-effect.
+
+condition = boolean-expression { ("&&" | "||") boolean-expression }.
+
+boolean-expression = 
+	 integer-expression (">" | "<" | "<=" | ">=" | "==" | "!=") integer-expression
+	| ("true" | "otherwise" | "false")
+	| "(" condition ")".
+
+integer-expression = bit-expression.
+
+bit-expression = add-expression { ("^" | "&" | "|" | "<<" | ">>") add-expression }.
+
+add-expression = mul-expression { ("+" | "-" ) mul-expression }.
+
+mul-expression = unary-expression { ("*" | "/" | "%") unary-expression }.
+
+unary-expression = simple-expression | "~" simple-expression.
+
+simple-expression = value | "(" integer-expression ")".
+
+integer = digit { digit }.
+
+digit = "0" | "1" | "..." | "9".
+
+hex = "#" hex-digit { hex-digit }.
+
+hex-digit = digit | "A" | "B" | "C" | "D" | "E" | "F".
+
+side-effect = 
+	  "print" "(" integer-expression ")"
+	| "printASCII" "(" integer-expression ")"
+	| "bell"
+	| "halt"
+	| "nop".
+
+value = 
+      integer
+    | hex
+    | identifier
+    | state-value.
+
+state-value = 
+      "[" integer-expression "]"
+    | "{" integer-expression "}"
+    | register-name.
+	
+identifier = letter { (integer | letter) }.
+
+register-name = letter { (integer | letter) }.
+
+letter = "_" | alphabetical-character.
+
+alphabetical-character = lowercase-character | uppercase-character.
+
+lowercase-character = "a" | "b" | "..." | "z".
+uppercase-character = "A" | "B" | "..." | "Z".
+
+}

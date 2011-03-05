@@ -1,0 +1,59 @@
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/aelp/LODev/!svn/ver/2863/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi
+END
+CAPIInterface.as
+K 25
+svn:wc:ra_dav:version-url
+V 100
+/svn/aelp/LODev/!svn/ver/1929/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIInterface.as
+END
+CAPIUtils.as
+K 25
+svn:wc:ra_dav:version-url
+V 96
+/svn/aelp/LODev/!svn/ver/2791/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIUtils.as
+END
+CAPIWrapper.as
+K 25
+svn:wc:ra_dav:version-url
+V 98
+/svn/aelp/LODev/!svn/ver/1929/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIWrapper.as
+END
+CAPIType.as
+K 25
+svn:wc:ra_dav:version-url
+V 95
+/svn/aelp/LODev/!svn/ver/2639/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIType.as
+END
+SnapshotInspector.mxml
+K 25
+svn:wc:ra_dav:version-url
+V 106
+/svn/aelp/LODev/!svn/ver/2800/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/SnapshotInspector.mxml
+END
+DebugConsole.mxml
+K 25
+svn:wc:ra_dav:version-url
+V 101
+/svn/aelp/LODev/!svn/ver/1929/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/DebugConsole.mxml
+END
+CAPIAppletWrapper.as
+K 25
+svn:wc:ra_dav:version-url
+V 104
+/svn/aelp/LODev/!svn/ver/2569/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIAppletWrapper.as
+END
+CAPIArrayWrapper.as
+K 25
+svn:wc:ra_dav:version-url
+V 103
+/svn/aelp/LODev/!svn/ver/2762/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPIArrayWrapper.as
+END
+CAPISnapshot.as
+K 25
+svn:wc:ra_dav:version-url
+V 99
+/svn/aelp/LODev/!svn/ver/2855/classpath/trunk/as3/src/com/adaptiveelearning/lo/capi/CAPISnapshot.as
+END

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<containers:ResizeWindow 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:containers="sjd.containers.*" 
+	xmlns:ui="com.adaptiveelearning.ui.*"
+	
+	showCloseButton="true" borderAlpha="0.8" 
+	layout="absolute" width="400" height="600" 
+	title="CAPISnapshot Inspector" >
+	<mx:Script>
+		<![CDATA[
+			import mx.core.IFlexDisplayObject;
+			import mx.managers.PopUpManager;
+			import mx.core.Application;
+			import mx.events.CloseEvent;
+			import com.adaptiveelearning.capi.CAPIMessage;
+			
+			public static var _instance:SnapshotInspector; 
+			
+			/**
+			 * Property: Snapshot
+			 */ 
+			private var _snapshot:CAPISnapshot;
+			[Bindable] 
+			public function set snapshot(s:CAPISnapshot):void {
+				_snapshot = s;
+				byteArray = new ByteArray();
+				byteArray.writeObject(s);
+				snapshotSize = byteArray.length;
+				
+			}
+			public function get snapshot():CAPISnapshot {
+				return _snapshot;
+			}
+			
+			
+			[Bindable] public var snapshotSize:uint;
+			
+			public static function showSnapshot(snapshot:CAPISnapshot):void {
+				pop();
+				_instance.snapshot = snapshot;
+			}
+			
+			
+			/**
+			 * @param capiable - an object we can call collectSnapshot(callback) on
+			 * typically this will be a CAPI object, but also proxies (such as AS2LOProxy) etc 
+			 * that implement collectSnapshot will thus work  
+			 * */
+			public static function inspect(capiable:Object):void {
+				pop();
+				_instance.capiable = capiable;
+				_instance.collectSnapShot();
+			}
+			
+			
+			private function onSnapshotReady(event:CAPIEvent):void {
+				_instance.snapshot = event.snapshot;
+				grid.searchText = searchTextInput.text;
+			}
+			
+			
+			public static function pop():void {
+				if (_instance == null) {
+					_instance = new SnapshotInspector();
+					_instance.addEventListener(CloseEvent.CLOSE,doClose);
+				} 
+				if (_instance.parent == null) { 
+					PopUpManager.addPopUp(_instance,DisplayObject(Application.application),false);
+					PopUpManager.centerPopUp(_instance);
+				} else {
+					PopUpManager.bringToFront(_instance);
+				}
+				 
+			} 
+			
+			
+			public static function doClose(event:CloseEvent):void {
+				PopUpManager.removePopUp(_instance as IFlexDisplayObject);
+			}
+			
+			
+			private function collectSnapShot():void {
+				var cMessage:CAPIMessage = new CAPIMessage(capiable);
+				cMessage.addEventListener(CAPIEvent.SNAPSHOT_READY,onSnapshotReady);
+				cMessage.collectSnapshot();
+			}
+			
+			
+			public function doRefresh():void {
+				collectSnapShot();
+			}
+			
+				
+			/**
+			 * the capiable object we use. this can be anything that implements CAPIInterface2 or  
+			 * */
+			public var capiable:Object;
+			
+			
+			[Bindable]public var byteArray:ByteArray;
+			
+
+		]]>
+	</mx:Script>
+	<mx:VBox width="100%" height="100%">
+		 <mx:HBox width="100%" verticalAlign="middle">
+			<mx:Label text="Search:"/>
+			<mx:TextInput id="searchTextInput" 
+				change="grid.searchText = searchTextInput.text"/>
+			<mx:Spacer width="100%"/>
+			<mx:Button label="Refresh" click="doRefresh();" styleName="AELPbutton" height="18"/>
+		</mx:HBox>
+		<ui:SearchableDataGrid id="grid"
+			 
+				width="100%" 
+				height="100%" 
+				editable="true"
+				dataProvider="{snapshot.toNameValueArrayCollection()}"	enableSearch="true">
+	 		<ui:columns>
+	 		    <mx:DataGridColumn dataField="name" headerText="Name" editable="true"/>
+	            <mx:DataGridColumn dataField="value" headerText="value" sortable="false" editable="true"/>
+	        </ui:columns>
+		</ui:SearchableDataGrid>
+	</mx:VBox>
+   <mx:ControlBar>
+   		<mx:Label text="#Elements:{snapshot.getNumAttributes()}" toolTip="Total Number of Elements in this Snapshot" />
+   		<mx:Label text="Size:{snapshotSize} bytes" toolTip="Snapshot Object Size After Serialization"/>
+   </mx:ControlBar>
+    
+</containers:ResizeWindow>

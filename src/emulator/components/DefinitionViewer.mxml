@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ToolWindow xmlns="emulator.components.*" xmlns:mx="http://www.adobe.com/2006/mxml">
+	<mx:Script>
+		<![CDATA[
+			public var uploadFunction:Function;
+			
+			public function set definition( value:String ):void {
+				//trace( value ); 
+				if ( this.codeBox != null ) {
+					this.codeBox.text = value;
+				}
+			}
+			
+			private function upload( event:Event ):void {
+				
+				var definitionText:String = this.codeBox.text;
+				
+				definitionText = definitionText.replace( /\r/g, '\n' );
+				
+				//trace( "data:" );
+				//trace( definitionText.split('\n').toString() );
+				uploadFunction( definitionText );
+				
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:TextArea id="codeBox"
+		width="100%"
+		height="100%"
+		/>
+			
+	<mx:Button id="uploadButton"
+		label="Redefine Processor"
+		click="upload(event)"
+		/>
+	
+</ToolWindow>

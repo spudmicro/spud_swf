@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<containers:ResizeWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	showCloseButton="true" borderAlpha="0.8" 
+	layout="absolute" width="400" height="600" title="CAPISnapshot Inspector" 
+	xmlns:containers="sjd.containers.*" xmlns:ui="com.adaptiveelearning.ui.*">
+	<mx:Script>
+		<![CDATA[
+			import flash.sampler.getSize;
+			import mx.collections.ArrayCollection;
+		
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CloseEvent;
+			import mx.core.Application;
+			import mx.managers.PopUpManager;
+			
+			public static var _instance:SnapshotInspector; 
+			
+			/**
+			 * Property: Snapshot
+			 */ 
+			private var _snapshot:CAPISnapshot;
+			[Bindable] 
+			public function set snapshot(s:CAPISnapshot):void {
+				_snapshot = s;
+			}
+			public function get snapshot():CAPISnapshot {
+				return _snapshot;
+			}
+			
+			
+			[Bindable] public var snapshotSize:uint;
+			
+			public static function showSnapshot(snapshot:CAPISnapshot):void {
+				if (!_instance) {
+					pop();
+				}
+				_instance.snapshot = snapshot;
+			}
+			
+			
+			public static function inspect(obj:Object):void {
+				SnapshotInspector.collectAndShow({animation:obj},obj.CAPI);
+			}
+			
+			
+			
+			public static function collectAndShow(rootObj:Object, capiInterface:CAPIInterface):void {
+				if (!_instance) {
+					pop();
+				}
+				_instance.targetObject = rootObj;
+				_instance._capiInterface = capiInterface;
+				showSnapshot(_instance.collectSnapShot());
+			}
+			
+			public static function pop():void {
+				_instance = PopUpManager.createPopUp(DisplayObject(Application.application),SnapshotInspector,false) as SnapshotInspector;
+				PopUpManager.centerPopUp(_instance);
+				_instance.addEventListener(CloseEvent.CLOSE,doClose); 
+			} 
+			
+			public static function doClose(event:CloseEvent):void {
+				PopUpManager.removePopUp(_instance as IFlexDisplayObject);
+				_instance = null;
+			}
+			
+			
+			public function doRefresh():void {
+				snapshot = collectSnapShot();
+				
+				// Reapply the current search filter so the properties view the same after the refresh 
+				grid.searchText = searchTextInput.text;
+			}
+			
+			
+			/******************************************************************************************************
+			 *
+			 * Private Members
+			 * 
+			 ******************************************************************************************************/
+			
+			/**
+			 * The root object to use when collecting a snapshot
+			 */ 
+			public var targetObject:Object;
+			
+			/**
+			 * The CAPI Interface object to use when collecting a snapshot
+			 */ 
+			private var _capiInterface:CAPIInterface;
+			
+			
+			/******************************************************************************************************
+			 *
+			 * Private Methods
+			 * 
+			 ******************************************************************************************************/
+			private function collectSnapShot():CAPISnapshot {
+				var capi:CAPIInterface = (_capiInterface) ? _capiInterface : targetObject.CAPI;  
+				var capiTree:XML =  capi.getCAPITree();
+				trace(capiTree);
+				return CAPIUtils.collectSnapshot(targetObject,capiTree);
+			}
+
+		]]>
+	</mx:Script>
+	<mx:VBox width="100%" height="100%">
+		 <mx:HBox width="100%" verticalAlign="middle">
+			<mx:Label text="Search:"/>
+			<mx:TextInput id="searchTextInput" 
+				change="grid.searchText = searchTextInput.text"/>
+			<mx:Spacer width="100%"/>
+			<mx:Button label="Refresh" click="doRefresh();" styleName="AELPbutton" height="18"/>
+		</mx:HBox>
+		<ui:SearchableDataGrid id="grid" width="100%" height="100%" editable="true"
+			dataProvider="{snapshot.toNameValueArrayCollection()}"	enableSearch="true">
+	 		<ui:columns>
+	 		    <mx:DataGridColumn dataField="name" headerText="Name" editable="true"/>
+	            <mx:DataGridColumn dataField="value" headerText="value" sortable="false" editable="true"/>
+	        </ui:columns>
+		</ui:SearchableDataGrid>
+	</mx:VBox>
+   <mx:ControlBar>
+   		<mx:Label text="#Elements:{snapshot.getNumAttributes()}" />
+   </mx:ControlBar>
+    
+    
+</containers:ResizeWindow>

@@ -1,0 +1,41 @@
+name: 4917
+memoryBitSize: 4
+numMemoryAddresses: 16
+registerBitSize: 4
+registerNames: IP, IS, R0, R1
+
+[descriptions]
+0: Halt	                       				
+1: Add (R0 = R0 + R1)	         				
+2: Subtract (R0 = R0 - R1)	    				
+3: Increment R0 (R0 = R0 + 1)	 				
+4: Increment R1 (R1 = R1 + 1)	 				
+5: Decrement R0 (R0 = R0 - 1)	 				
+6: Decrement R1 (R1 = R1 - 1)	 				
+7: Ring Bell	                  				
+8: Print <data> (numerical value is printed)	
+9: Load value at address <data> into R0	     
+10: Load value at address <data> into R1	     
+11: Store R0 into address <data>	             
+12: Store R1 into address <data>	             
+13: Jump to address <data>	                   
+14: Jump to address <data> if R0 == 0	        
+15: Jump to address <data> if R0 != 0
+
+[instructions]
+0, 1: halt.
+1, 1: R0 += R1.
+2, 1: R0 -= R1.
+3, 1: R0++.
+4, 1: R1++.
+5, 1: R0--.
+6, 1: R1--.
+7, 1: bell.
+8, 2: print([IP-1]).
+9, 2: R0 = [[IP-1]].
+10, 2: R1 = [[IP-1]].
+11, 2: [[IP-1]] = R0.
+12, 2: [[IP-1]] = R1.
+13, 2: IP = [IP-1].
+14, 2 case R0 == 0: IP = [IP-1].
+15, 2 case R0 != 0: IP = [IP-1].

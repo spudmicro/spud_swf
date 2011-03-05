@@ -1,0 +1,239 @@
+name: Neunundneunzigium
+memoryBitSize: 8
+numMemoryAddresses: 1024
+registerBitSize: 16
+registerNames: R0, R1, R2, R3, R4, R5, IP, IS, FL
+
+[descriptions]
+0: Halt	                       				
+1: Add R1 (R0 = R0 + R1)	         				
+2: Subtract R1 (R0 = R0 - R1)	    				
+3: Increment R0 (R0++)	 				
+4: Increment R1 (R1++)	 				
+5: Decrement R0 (R0--)	 				
+6: Decrement R1 (R1--)	 				
+7: Ring Bell	                  				
+8: Print <data> (numerical value is printed)	
+9: Load value at address <data> into R0	     
+10: Load value at address <data> into R1	     
+11: Store R0 into address <data>	             
+12: Store R1 into address <data>	             
+13: Jump to address <data>	                   
+14: Jump to address <data> if R0 == 0	        
+15: Jump to address <data> if R0 != 0
+16: Decrement R2 (R2--)
+17: Decrement R3 (R3--)
+18: Add R2 (R0 = R0 + R2)
+19: Add R3 (R0 = R0 + R3)
+20: Subtract R2 (R0 = R0 - R2)
+21: Subtract R3 (R0 = R0 - R3)
+22: Increment R2 (R2++)
+23: Invert R0 (R0 = ~R0)
+24: Print ASCII of <data>
+25: Immediate Load of <data> into R0
+26: Immediate Load of <data> into R1
+27: Immediate Load of <data> into R2
+28: Indexed Load of data at address R3+<data> into R1
+29: Indexed Load of data at address R3+<data> into R2
+30: Indexed Store of R1 into address R3+<data>
+31: Indexed Store of R2 into address R3+<data>
+32: Invert R1 (R1 = ~R1)
+33: Invert R2 (R2 = ~R2)
+34: AND R1 (R0 = R0 & R1)
+35: AND R2 (R0 = R0 & R2)
+36: OR R1 (R0 = R0 | R1)
+37: OR R2 (R0 = R0 | R2)
+38: XOR R1 (R0 = R0 ^ R1)
+39: XOR R2 (R0 = R0 ^ R2)
+
+[instructions]
+0, 1: halt.
+1, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegATop                            | ((RegALo + RegBLo) & #00FF)
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegATop                            | ((RegALo + RegBHi) & #00FF)
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = (((RegAHi + RegBLo) & #00FF) << 8) | RegALo
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = (((RegAHi + RegBHi) & #00FF) << 8) | RegALo
+  case [IP-2] < 8  && [IP-1] < 24 : {RegAPos} = RegATop                            | ((RegALo +  RegB)  & #00FF)
+  case [IP-2] < 24 && [IP-1] < 8  : {RegAPos} = RegA + RegBLo
+  case [IP-2] < 16 && [IP-1] < 24 : {RegAPos} = (((RegAHi + RegB)   & #00FF) << 8) | RegALo
+  case [IP-2] < 24 && [IP-1] < 16 : {RegAPos} = RegA + RegBHi
+  case otherwise                  : {RegAPos} = RegA + RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegALo  = RegA & #00FF;
+     RegAHi  = RegA >> 8;
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegATop = RegA & #FF00;
+.   
+2, 3
+  case RegA < RegB ? FL = 1
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegATop                            | ((RegALo - RegBLo) & #00FF)
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegATop                            | ((RegALo - RegBHi) & #00FF)
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = (((RegAHi - RegBLo) & #00FF) << 8) | RegALo
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = (((RegAHi - RegBHi) & #00FF) << 8) | RegALo
+  case [IP-2] < 8  && [IP-1] < 24 : {RegAPos} = RegATop                            | ((RegALo -  RegB)  & #00FF)
+  case [IP-2] < 24 && [IP-1] < 8  : {RegAPos} = RegA - RegBLo
+  case [IP-2] < 16 && [IP-1] < 24 : {RegAPos} = (((RegAHi - RegB)   & #00FF) << 8) | RegALo
+  case [IP-2] < 24 && [IP-1] < 16 : {RegAPos} = RegA - RegBHi
+  case otherwise                  : {RegAPos} = RegA - RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegALo  = RegA & #00FF;
+     RegAHi  = RegA >> 8;
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegATop = RegA & #FF00;
+.
+3, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegATop                            | ((RegALo * RegBLo) & #00FF)
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegATop                            | ((RegALo * RegBHi) & #00FF)
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = (((RegAHi * RegBLo) & #00FF) << 8) | RegALo
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = (((RegAHi * RegBHi) & #00FF) << 8) | RegALo
+  case [IP-2] < 8  && [IP-1] < 24 : {RegAPos} = RegATop                            | ((RegALo *  RegB)  & #00FF)
+  case [IP-2] < 24 && [IP-1] < 8  : {RegAPos} = RegA * RegBLo
+  case [IP-2] < 16 && [IP-1] < 24 : {RegAPos} = (((RegAHi * RegB)   & #00FF) << 8) | RegALo
+  case [IP-2] < 24 && [IP-1] < 16 : {RegAPos} = RegA * RegBHi
+  case otherwise                  : {RegAPos} = RegA * RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegALo  = RegA & #00FF;
+     RegAHi  = RegA >> 8;
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegATop = RegA & #FF00;
+.
+4, 3
+  case [IP-2] < 8  && [IP-1] < 8  && RegBLo != 0 : {RegAPos} = RegATop                            | ((RegALo / RegBLo) & #00FF)
+  case [IP-2] < 8  && [IP-1] < 16 && RegBHi != 0 : {RegAPos} = RegATop                            | ((RegALo / RegBHi) & #00FF)
+  case [IP-2] < 16 && [IP-1] < 8  && RegBLo != 0 : {RegAPos} = (((RegAHi / RegBLo) & #00FF) << 8) | RegALo
+  case [IP-2] < 16 && [IP-1] < 16 && RegBHi != 0 : {RegAPos} = (((RegAHi / RegBHi) & #00FF) << 8) | RegALo
+  case [IP-2] < 8  && [IP-1] < 24 && RegB   != 0 : {RegAPos} = RegATop                            | ((RegALo / RegB)  & #00FF)
+  case [IP-2] < 24 && [IP-1] < 8  && RegBLo != 0 : {RegAPos} = RegA / RegBLo
+  case [IP-2] < 16 && [IP-1] < 24 && RegB   != 0 : {RegAPos} = (((RegAHi / RegB)   & #00FF) << 8) | RegALo
+  case [IP-2] < 24 && [IP-1] < 16 && RegBHi != 0 : {RegAPos} = RegA / RegBHi
+  case RegB != 0                                 : {RegAPos} = RegA / RegB
+  case otherwise                                 : FL = 1
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegALo  = RegA & #00FF;
+     RegAHi  = RegA >> 8;
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegATop = RegA & #FF00;
+.
+5, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegATop                  | (RegALo % RegBLo)
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegATop                  | (RegALo % RegBHi)
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = ((RegAHi % RegBLo) << 8) | RegALo
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = ((RegAHi % RegBHi) << 8) | RegALo
+  case otherwise                  : {RegAPos} = RegA % RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegALo  = RegA & #00FF;
+     RegAHi  = RegA >> 8;
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegATop = RegA & #FF00;
+.
+6, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegA & RegBLo
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegA & RegBHi
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = RegA & (RegBLo << 8)
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = RegA & RegBTop
+  case otherwise                  : {RegAPos} = RegA & RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegBTop = RegB & #FF00;
+.
+7, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegA | RegBLo
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegA | RegBHi
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = RegA | (RegBLo << 8)
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = RegA | RegBTop
+  case otherwise                  : {RegAPos} = RegA | RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegBTop = RegB & #FF00;
+.
+8, 3
+  case [IP-2] < 8  && [IP-1] < 8  : {RegAPos} = RegA ^ RegBLo
+  case [IP-2] < 8  && [IP-1] < 16 : {RegAPos} = RegA ^ RegBHi
+  case [IP-2] < 16 && [IP-1] < 8  : {RegAPos} = RegA ^ (RegBLo << 8)
+  case [IP-2] < 16 && [IP-1] < 16 : {RegAPos} = RegA ^ RegBTop
+  case otherwise                  : {RegAPos} = RegA ^ RegB
+  where
+     RegAPos = [(IP-2)%8];
+     RegBPos = [(IP-1)%8];
+     RegA    = {RegAPos};
+     RegB    = {RegBPos};
+     RegBLo  = RegB & #00FF;
+     RegBHi  = RegB >> 8;
+     RegBTop = RegB & #FF00;
+.
+9, 2
+  case [IP-1] < 8  : {RegPos} = Reg ^ #00FF
+  case [IP-1] < 16 : {RegPos} = Reg ^ #FF00
+  case otherwise   : {RegPos} = ~Reg
+  where
+     RegPos = [(IP-1)%8];
+     Reg    = {RegPos};
+.
+
+// etcÉ
+
+10, 2: R1 = [[IP-1]].
+11, 2: [[IP-1]] = R0.
+12, 2: [[IP-1]] = R1.
+13, 2: IP = [IP-1].
+14, 2 case R0 == 0: IP = [IP-1].
+15, 2 case R0 != 0: IP = [IP-1].
+16, 1: R2--.
+17, 1: R3--.
+18, 1: R0 += R2.
+19, 1: R0 += R3.
+20, 1: R0 -= R2.
+21, 1: R0 -= R3.
+22, 1: R2++.
+23, 1: R0 = ~R0.
+24, 2: printASCII([IP-1]).
+25, 2: R0 = [IP-1].
+26, 2: R1 = [IP-1].
+27, 2: R2 = [IP-1].
+28, 2: R1 = [R3+[IP-1]].
+29, 2: R2 = [R3+[IP-1]].
+30, 2: [R3+[IP-1]] = R1.
+31, 2: [R3+[IP-1]] = R2.
+32, 1: R1 = ~R1.
+33, 1: R2 = ~R2.
+34, 1: R0 = R0 & R1.
+35, 1: R0 = R0 & R2.
+36, 1: R0 = R0 | R1.
+37, 1: R0 = R0 | R2.
+38, 1: R0 = R0 ^ R1.
+39, 1: R0 = R0 ^ R2.

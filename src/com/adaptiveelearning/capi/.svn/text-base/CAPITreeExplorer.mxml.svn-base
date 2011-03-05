@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResizeWindow 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns="sjd.containers.*" 
+	xmlns:controls="com.adaptiveelearning.ui.controls.*" 
+	
+	width="400" height="600"
+ 	title="CAPI Tree Explorer"
+ 	creationComplete="initComponent(event)" 
+	showCloseButton="true"
+	close="onClose(event)"
+	 >
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.CloseEvent;
+			import mx.core.Application;
+			import mx.managers.PopUpManager;
+		
+			
+			import mx.collections.ArrayCollection;
+			import com.adaptiveelearning.capi.CAPIUtils;
+			
+			import mx.events.ToolTipEvent;
+			
+			import mx.collections.ICollectionView;
+			import mx.events.ListEvent;
+			import mx.events.TreeEvent;
+		
+			
+			private static var _instance:CAPITreeExplorer;
+			
+				
+			public static function pop():CAPITreeExplorer {
+				if (!_instance) {
+					_instance = new CAPITreeExplorer(); 
+				} 
+				PopUpManager.addPopUp(_instance,Application.application as DisplayObject,true);
+				PopUpManager.centerPopUp(_instance);
+				
+				if (_instance.initialized) {
+					_instance.tree.setFocus();
+				}
+				
+				return _instance;
+			}
+			
+			
+			public static function inspect(CAPI:CAPIInterface2):void {
+				pop().capiTree = CAPI.getCAPITree();
+			}
+			
+			private var capiTreeChanged:Boolean;
+			private var _capiTree:XML;
+			[Bindable] 
+			public function set capiTree(value:XML):void {
+				_capiTree = value;
+				capiTreeChanged = true;
+				invalidateProperties();
+			}
+			public function get capiTree():XML {
+				return _capiTree;
+			}
+			
+			
+			protected function onClose(event:CloseEvent):void {
+				PopUpManager.removePopUp(this);
+			}
+			
+			
+			override protected function commitProperties():void {
+				super.commitProperties();
+				
+				if (capiTreeChanged) {
+					capiTreeChanged = false;
+					tree.invalidateList();
+					tree.validateNow();
+					tree.expandChildrenOf(_capiTree,true);//tree.firstVisibleItem,true);
+				}
+			}
+			
+			
+			public function get targetPath():String {	return targetPathTextInput.text; }
+			
+			public function get targetType():String {	return selectionTypeTextField.text; }
+			
+			
+			public function get selectedItem():Object {
+				return tree.selectedItem;
+			}
+			
+			protected function initComponent(event:Event = null):void {
+				if (tree.dataProvider.length>0) { 
+					tree.expandChildrenOf(tree.dataProvider.getItemAt(0),true);
+				}
+			}
+			
+			private function doSearch():void {
+				tree.findNodeById("@label",searchBar.text,false);
+			}
+			
+			protected function getDataTip(item:Object):String {
+				return CAPIUtils.capiItemToToolTip(item);
+			}
+			
+			private var origCAPI:XML;
+			
+			private function doFilter():void {
+				if (origCAPI == null) {
+					origCAPI = new XML(capiTree.toXMLString());
+					
+				}
+				toSearch = searchBar.text.toLowerCase();
+				refreshData()
+				
+			}
+
+			private function refreshData():void{
+				var tmp:XML = new XML(origCAPI.toXMLString());
+				refreshRecursiveChildren(tmp);
+				capiTree = tmp;
+				
+				tree.invalidateList();
+				tree.validateNow();
+				tree.expandChildrenOf(tree.firstVisibleItem,true);
+				return;
+			}
+				
+			private var toSearch:String;
+			private function refreshRecursiveChildren(node:XML):void{
+				if(node.children()){
+					//loop through each child and filter its children
+					for each(var _node:XML in node.children()){
+						refreshRecursiveChildren(_node);
+					}
+					
+					var name:String = String(node.@name).toLowerCase();
+					var match:Boolean = (name.indexOf(toSearch) != -1);
+					var hasChildren:Boolean = node.children().length()>0;
+					if (!hasChildren && !match) {
+						var i:int = node.childIndex();
+						var parent:XML = node.parent();
+						if (parent) {
+							delete parent.children()[i];
+						}
+					}
+				}
+			}
+				
+			private function targetNameFromSelection(item:XML):String {
+				var str:String = CAPIUtils.parseXMLToDotNotation(tree.selectedItem as XML,'@name');
+				var str2:String = str.replace("aelp.","");
+				return str2;
+			}
+
+		]]>
+	</mx:Script>
+	<mx:VBox width="100%" height="100%"  paddingLeft="5" paddingRight="5" paddingTop="5" verticalGap="1" >
+		<mx:HBox horizontalAlign="right" horizontalGap="0" width="100%" paddingBottom="0" paddingTop="0">
+			<mx:Label text="Find:"/>
+			<mx:TextInput id="searchBar" change="doFilter()" width="100%"/>
+			<mx:Spacer width="10"/>
+			<mx:Button toolTip="Collapse All" height="22" width="22" 
+				icon="@Embed('/assets/icon_collapse_all.png')" click="tree.collapseAll()" />
+		</mx:HBox>
+		<controls:SearchableTree id="tree" 
+				rowHeight="18" fontFamily="Arial" fontSize="11"
+				width="100%" height="100%"
+				openDuration="100"
+				showRoot="false"
+				labelField="@name"
+				showDataTips="true"
+				dataTipFunction="getDataTip"
+				dataProvider="{capiTree}"/>
+		<mx:HBox width="100%" horizontalGap="0">
+			<mx:TextInput id="targetPathTextInput" width="100%" 
+					editable="true" fontSize="9" 
+					text="{targetNameFromSelection(tree.selectedItem as XML)}"/>
+			<mx:Label text=":" width="8"/>
+			<mx:TextInput editable="false" id="selectionTypeTextField" width="75" text="{tree.selectedItem.@type}"/>
+		</mx:HBox>
+	</mx:VBox>
+</ResizeWindow>

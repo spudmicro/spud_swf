@@ -1,0 +1,1094 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="800" height="600"
+	creationComplete="initDevice();"
+	xmlns:components="emulator.components.*">
+
+<mx:Script>
+    	<![CDATA[
+    		private static const ver:String = "v0.02 alpha"
+    	
+    		import mx.events.EffectEvent;
+    		import mx.effects.Move;
+    		import emulator.components.ToolWindow;
+    		import emulator.components.DefinitionViewer;
+    		import emulator.interpreter.InterpreterError;
+    		import mx.events.CloseEvent;
+    		import mx.collections.ArrayCollection;
+    		import emulator.loaders.WikiLoader;
+    		import emulator.components.InstructionSetViewer;
+    		import emulator.components.CodeEditor;
+    		import mx.core.IFlexDisplayObject;
+    		import mx.events.ItemClickEvent;
+    		import mx.managers.PopUpManager;
+    		import mx.controls.Spacer;
+    		import emulator.interpreter.InterpretedProcessor;
+    		import mx.controls.Alert;
+    		import mx.containers.HBox;
+    		import mx.controls.TextInput;
+    		import mx.controls.Text;
+    		import mx.containers.GridItem;
+    		import mx.containers.GridRow;
+    		import emulator.builtin.*;
+    		
+			[Embed(source="../assets/boardImgs/board_Off.png")]
+			[Bindable]
+			public var BoardOff:Class;
+			
+			[Embed(source="../assets/boardImgs/board_On.png")]
+			[Bindable]
+			public var BoardOn:Class;
+			
+			[Bindable]
+			public var boardBg:Class = BoardOff;
+    		
+			[Embed(source="../assets/boardImgs/Bell_On_21_197.png")]
+			[Bindable]
+			public var BellOn:Class;
+			
+			[Embed(source="/../assets/boardImgs/arrow_chip.png")]
+			[Bindable]
+			public var ChipArrow:Class;
+			
+			[Embed(source="../assets/boardImgs/Fetch_On_267_40.png")]
+			[Bindable]
+			public var FetchOn:Class;
+			
+			[Embed(source="../assets/boardImgs/Inc_On_358_40.png")]
+			[Bindable]
+			public var IncOn:Class;
+			
+			[Embed(source="../assets/boardImgs/Ex_On_429_40.png")]
+			[Bindable]
+			public var ExOn:Class;
+			
+			[Embed(source="4917.proc",mimeType="application/octet-stream")]
+			private var processorDefinition:Class;
+			
+			
+			private var isOn:Boolean = false;
+			
+			private var state:State;
+			private var uploadedState:State;
+			
+			private var isRunning:Boolean = false;
+			
+			private var executor:Emulator;
+			
+			[Bindable]
+			private var numRows:int = 1;
+			[Bindable]
+			private var numCols:int = 1;
+			
+			[Bindable]
+			private var boxWidth:int = 25;
+			[Bindable]
+			private var boxHeight:int = 20;
+			
+			private var memoryBoxes:Array;
+			private var registerBoxes:Dictionary;
+			private var numRegisterBoxes:int = 0;
+			
+			private var bellRings:int = 0;
+			
+			private var isInitialState:Boolean = true;
+			
+			private const SmallProcessorSize:int = 16;
+			private const MedProcessorSize:int = 256;
+			
+			private var currentPage:int = 0;
+			
+			private static const boxBorder:int = 0xc0c0c0;
+			
+			private static const registerLabelWidth:int = 30;
+			private static const registerBoxWidth:int = 55;
+			private static const registerBoxHeight:int = 20;
+			
+			private var instructionSetViewer:InstructionSetViewer;
+			private var codeEditor:CodeEditor;
+			private var definitionViewer:DefinitionViewer;
+			
+			private var definitionStr:String;
+			
+			private function onLoadComplete( event:Event ):void {
+				changeProcessorDefinition( event.currentTarget.content['definition'] );
+			}
+			
+			public function initDevice( ):void {
+				
+				executor = new Emulator( this.update );
+				
+			
+				Security.allowDomain( "www.adaptiveelearning.com" );
+				Security.allowInsecureDomain( "www.adaptiveelearning.com" );
+
+				powerOff( );
+				if ( mx.core.Application.application.parameters.hasOwnProperty( 'url' ) ) {
+					// get from wiki
+					
+					var url:String = mx.core.Application.application.parameters.url;
+					var loader:WikiLoader = new WikiLoader( );
+					//loader.load( "#!SPuD", url, changeProcessorDefinition );
+					loader.load( "", url, changeProcessorDefinition );
+					
+					
+				} else {
+					
+					var bytes:ByteArray = new processorDefinition( );
+					var definition:String =  bytes.readUTFBytes( bytes.length );
+					changeProcessorDefinition( definition );
+					
+				}
+				
+			}
+			
+			
+			public function changeProcessorDefinition( definition:String ):void {
+				powerOn( );
+				
+				try {
+					var processor:Processor = new InterpretedProcessor( definition );
+				} catch ( interpreterError:InterpreterError ) {
+					Alert.show( "Parsing Error: " + interpreterError.message, "Parsing Error" );
+					return;
+				} catch ( error:Error ) {
+					Alert.show( "Unknown error parsing microcontroller description: " + error.message, "Parsing Error" );
+					return;
+				}
+				
+				definitionStr = definition;
+	
+				state = new State( processor );
+				uploadedState = state.duplicate();
+
+				
+				if ( processor.numMemoryAddresses <= SmallProcessorSize ) {
+					this.numCols = 4;
+					this.numRows = 4;
+				} else if (  processor.numMemoryAddresses <= MedProcessorSize ) {
+					this.numCols = 8;
+					this.numRows = 16;
+				} else {
+					// fat processor
+					if ( processor.memoryBitSize < 16 ) {
+						this.numCols = 16;
+					} else {
+						this.numCols = 8;
+					}
+					this.numRows = 16;
+				}
+				
+				if ( processor.memoryBitSize < 8 ) {
+					// remain
+				} else if ( processor.memoryBitSize < 16 ) {
+					boxWidth += 5;
+				} else {
+					boxWidth += 20;
+				}
+				
+				processorLabel.text = processor.name;
+				
+				memoryBoxes = new Array( );
+				numRegisterBoxes = 0;
+				
+				reset( );
+				
+				changePage( 0 );
+				initTools( );
+			}
+			
+			private function initTools( ):void {
+				
+				if ( instructionSetViewer == null ) {
+					instructionSetViewer = new InstructionSetViewer( );
+				} else {
+					instructionSetViewer.instructionDescriptions = new ArrayCollection( );
+				}
+				
+				var i:int = 0;
+				while ( i != state.processor.instructions.length ) {
+					var instruction:Instruction = state.processor.instructions[i];
+					if ( instruction != null ) {
+						var descriptionString:String = i + " (" + instruction.ipIncrement.toString() + " byte): " + instruction.description;
+						instructionSetViewer.instructionDescriptions.addItem( descriptionString );
+					}
+					i++;
+				}
+				
+				
+				
+				
+				if ( codeEditor == null ) {
+					codeEditor = new CodeEditor( );
+				}
+				codeEditor.uploadFunction = upload;
+				codeEditor.maxInstructions = state.processor.numMemoryAddresses;
+					
+				if ( definitionViewer == null ) {
+					definitionViewer = new DefinitionViewer( );
+				}
+				definitionViewer.uploadFunction = changeProcessorDefinition;
+				definitionViewer.definition     = definitionStr;
+				
+			}
+			
+			private function reconstructMemoryGrid( ):void {
+				memoryBoxes = new Array();
+				
+				// clear out grid
+				while ( memoryGrid.getChildren().length != 0 ) {
+					memoryGrid.removeChildAt( 0 );
+				}
+				
+				
+				for ( var rowNum:int = 0; rowNum != numRows; rowNum++ ) {
+					var row:GridRow = new GridRow();
+					
+					for ( var colNum:int = 0; colNum != numCols; colNum++ ) {
+						var item:GridItem = new GridItem();
+						var box:TextInput = new TextInput();
+						box.width = boxWidth;
+						box.height = boxHeight;
+						box.setStyle( "borderColor", boxBorder );
+						box.addEventListener( Event.CHANGE, cellChangeHandler );
+						box.addEventListener( FocusEvent.FOCUS_OUT, cellChangeHandler );
+						box.addEventListener( FocusEvent.FOCUS_IN, cellChangeHandler );
+						// remember all boxes of memory
+						memoryBoxes.push( box );
+						
+						item.addChild( box );
+						row.addChild( item );
+					}
+					
+					memoryGrid.addChild( row );
+				}
+			}
+			
+			private function fillOutMemoryGrid( ):void {
+				for ( var i:int = 0; i != memoryBoxes.length; i++ ) {
+					var box:TextInput = memoryBoxes[i];
+					
+					var memoryCell:int = i + (currentPage * numRows * numCols);
+					if ( memoryCell < state.processor.numMemoryAddresses ) {
+						box.text = state.getMemory( memoryCell ).toString( );
+						box.enabled = true;
+						box.data = memoryCell;
+						
+						if ( memoryCell == state.getRegister( "IP" ) ) {
+							box.setStyle( "borderColor", 0xffff00 );
+							box.setStyle( "borderStyle", "solid" );
+						} else {
+							box.setStyle( "borderColor", boxBorder );
+							box.setStyle( "borderStyle", "inset" );
+						}
+					} else {
+						box.text = "";
+						box.enabled = false;
+						box.data = -1;
+					}
+				}	
+			}
+			
+			private function reconstructRegisterList( ):void {
+				numRegisterBoxes = 0;
+				registerBoxes = new Dictionary();
+				
+				while ( registerValues.getChildren().length != 0 ) {
+					registerValues.removeChildAt( 0 );
+				}
+				
+				for each ( var name:String in state.processor.registerNames ) {
+					
+					
+					if ( name == "IP" ) {
+						
+						registerBoxes["IP"] = ipBox;
+						ipBox.text = state.getRegister( name ).toString( );
+						ipBox.editable = false;
+					} else if ( name == "IS" ) {
+						
+						registerBoxes["IS"] = isBox;
+						isBox.text = state.getRegister( name ).toString( );
+						isBox.editable = false;
+					} else {
+						var row:HBox = new HBox();
+						var label:Label = new Label();
+						var box:TextInput = new TextInput();
+						
+						
+						box.text = state.getRegister( name ).toString( );
+						box.width = registerBoxWidth;
+						box.editable = false;
+						box.setStyle( "borderColor", boxBorder );
+						
+						registerBoxes[name] = box;
+						numRegisterBoxes++;
+						
+						label.text = name + ":";
+						label.width = registerLabelWidth;
+						
+						row.addChild( label );
+						row.addChild( box );
+						
+						registerValues.addChild( row );
+					}
+				}
+				
+				
+			}
+			
+			private function fillOutRegisterList( ):void {
+				for each ( var name:String in state.processor.registerNames ) {
+					var box:TextInput = registerBoxes[name];
+					box.text = state.getRegister( name ).toString( );
+				}
+			}
+			
+			
+			private function hideBell( ):void {
+				bellLED.visible = false;
+			}
+			
+			private function ding( ):void {
+				bellLED.visible = true;
+				this.callLater( hideBell );
+			}
+			
+			private function pageChangeHandler( event:MouseEvent ):void {
+				changePage( event.currentTarget.data );	
+			}
+			
+			public function changePage( page:int ):void {
+				this.currentPage = page;
+				fillOutMemoryGrid( );
+				
+				// clear out menu
+				while ( pageMenu.getChildren().length != 0 ) {
+					pageMenu.getChildAt( 0 ).removeEventListener( MouseEvent.CLICK, pageChangeHandler );
+					pageMenu.removeChildAt( 0 );
+				}
+				
+				// clear out address labels
+				while ( memoryAddressLabels.getChildren().length != 0 ) {
+					memoryAddressLabels.removeChildAt( 0 );
+				}
+				
+				
+				
+				var pageStartAddress:int = (numRows * numCols) * page;
+				var pageEndAddress:int   = (numRows * numCols) * (page+1);
+				
+				var rowAddress:int = pageStartAddress;
+				while ( rowAddress != pageEndAddress ) {
+					var addressLabel:Label = new Label();
+					addressLabel.text = rowAddress.toString() + ": ";
+					addressLabel.minHeight = boxHeight;
+					addressLabel.height = boxHeight;
+					addressLabel.width  = 45;
+					addressLabel.setStyle( "fontThickness", 2 );
+					addressLabel.setStyle( "textAlign", "right" );
+					memoryAddressLabels.addChild( addressLabel );
+					rowAddress += numCols;
+				}
+				
+				
+				var numPages:int = Math.ceil( state.processor.numMemoryAddresses/(numRows * numCols) );
+				
+				
+				
+				var i:int;
+				if ( numPages > 1 ) {
+					for ( i = 0; i != numPages; i++ ) {
+						var label:Label = new Label();
+						label.text = i.toString();
+						label.data = i;
+						label.mouseChildren = false;
+						label.buttonMode = true;
+						label.useHandCursor = true;
+						if ( i == page ) {
+							label.setStyle( "fontWeight", "bold" );
+						} else {
+							label.setStyle( "textDecoration", "underline" );
+						}
+						
+						label.addEventListener( MouseEvent.CLICK, pageChangeHandler );
+						pageMenu.addChild( label );
+						pageMenu.addChild( new Spacer() );
+					}
+				}
+				
+				pageMenu.width = mainRegisterContainer.width;
+			}
+			
+			public function update( ):void {
+				
+				hideIP( null );
+				
+				// recreate grid squares (if inconsistent)
+				if ( (numRows * numCols) != memoryBoxes.length ) {
+					reconstructMemoryGrid( );
+				}
+				
+				fillOutMemoryGrid( );
+				
+				// repopulate registers similarly
+				if ( state.processor.numRegisters != numRegisterBoxes ) {
+					//Alert.show( "RECONSTRUCTING: " + state.processor.numRegisters.toString() + " " + numRegisterBoxes.toString() );
+					reconstructRegisterList( );
+				}
+				
+				fillOutRegisterList( );
+				
+				// visibility of LEDs (tests which pipeline step has just been completed)
+				if ( state.pipelineStep == 1 ) {
+					executeLED.visible = false;
+					fetchLED.visible = true;
+				} else if ( state.pipelineStep == 2 ) {
+					fetchLED.visible = false;
+					incrementLED.visible = true;
+				} else if ( state.pipelineStep == 0 ) {
+					incrementLED.visible = false;
+					executeLED.visible = true;
+				}
+				
+				
+				if ( state.isHalted ) {
+					ledsOff( );
+				}
+				
+				// bell visibility
+				var rings:int = state.numBellRings - bellRings;
+				if ( rings > 0 ) {
+					// initial ring
+					ding( );
+				}
+				if ( rings > 1 ) {
+					// subsequent rings
+					var ringer:Timer = new Timer( executor.delay, rings-1 );
+					ringer.addEventListener( TimerEvent.TIMER, ding );
+					ringer.start();
+				}
+				bellRings = state.numBellRings;
+				
+				// output
+				outputTextArea.text = state.output;
+				
+				
+				var statusArray:Array = new Array(
+					"Executions: " + state.executionStep,
+					"Bell Rings: " + bellRings.toString(),
+					"Output Chars: " + state.output.length
+				);
+				
+				if ( state.isHalted ) {
+					statusArray.push( "HALTED" );
+				}
+				
+				statusArray.push( ver );
+				
+				status.text = statusArray.join( '     ' );
+			}
+			
+			public function powerOn( ):void {
+				isOn = true;
+				boardBg = BoardOn;
+				outputTextArea.visible = true;
+				internalView.visible = true;
+				controlBar.visible = true;
+				arrowOverlay.visible = true;
+				
+				runButton.enabled = true;
+				stepButton.enabled = true;
+				resetButton.enabled = true;
+				
+				if ( state != null ) {
+					reset( );
+				}
+			}
+			
+			public function powerOff( ):void {
+				isOn = false;
+				boardBg = BoardOff;
+				outputTextArea.visible = false;
+				internalView.visible = false;
+				controlBar.visible = false;
+				arrowOverlay.visible = false;
+				
+				if ( state != null ) {
+					state.reset();
+					uploadedState.reset();
+				}
+				runButton.enabled = false;
+				stepButton.enabled = false;
+				resetButton.enabled = false;
+			}
+			
+			public function togglePower( ):void {
+				isOn = !isOn;
+				if ( isOn ) {
+					powerOn( );
+				} else {
+					powerOff( );
+				}
+			}
+			
+			private function ledsOn( ):void {
+				fetchLED.visible = true;
+				incrementLED.visible = true;
+				executeLED.visible = true;
+			}
+			
+			private function ledsOff( ):void {
+				fetchLED.visible = false;
+				incrementLED.visible = false;
+				executeLED.visible = false;
+			}
+			
+			public function reset( ):void {
+				state = uploadedState.duplicate();
+				bellRings = state.numBellRings;
+				update( );
+				ledsOn( );
+				ledsOff( );
+				isRunning = false;
+				isInitialState = true;
+			}
+			
+			public function run( ):void {
+				isInitialState = false;
+				
+				if ( isRunning ) {
+					// device is running, send stop signal
+					executor.stop();
+					isRunning = false;
+				} else if ( !state.isHalted ) {
+					executor.run( state );
+					isRunning = true;
+				}
+			}
+			
+			private function animateFetch( memAddress:int ):void {
+				var isOnPage:Boolean = memAddress >= ((numRows*numCols) * currentPage) && memAddress < ((numRows*numCols) * (currentPage+1));
+				var boxNum:int = memAddress % (numRows * numCols);
+				if ( isOnPage && boxNum < memoryBoxes.length ) {
+					var box:TextInput = memoryBoxes[ boxNum ];
+					
+					
+					var fromPos:Point = new Point( 0, 0 );
+					var toPos:Point = new Point( 0, 0 );
+					
+					fromPos = box.contentToGlobal( fromPos );
+					toPos = isBox.contentToGlobal( toPos );
+					
+					toPos = internalViewOverlay.globalToContent( toPos );
+					fromPos = internalViewOverlay.globalToContent( fromPos );
+					
+					var moveEffect:Move = new Move( );
+					
+					
+					var moveLabel:Label = new Label();
+					
+					moveEffect.target = moveLabel;
+					
+					moveLabel.text = box.text;
+					moveLabel.setStyle( "fontWeight", "bold" );
+					
+					internalViewOverlay.addChild( moveLabel );
+					
+					moveLabel.x = fromPos.x;
+					moveLabel.y = fromPos.y;
+					
+					moveEffect.duration = 500;
+					moveEffect.xTo = toPos.x;
+					moveEffect.yTo = toPos.y;
+					moveEffect.addEventListener( EffectEvent.EFFECT_END, function(event:Event):void { internalViewOverlay.removeAllChildren(); } );
+					moveEffect.play( );
+				}
+				
+			}
+			
+			public function step( ):void {
+				
+				isInitialState = false;
+				
+				if ( !isRunning && !state.isHalted ) {
+					
+					if ( state.pipelineStep == 0 ) {
+						animateFetch( state.getRegister( "IP" ) );
+					}
+					
+					executor.step( state );
+					
+				}
+			}
+			
+			private function showIP( event:MouseEvent ):void {
+				
+				hideIP( event );
+				
+				var memAddress:int = parseInt(ipBox.text);
+				var isOnPage:Boolean = memAddress >= ((numRows*numCols) * currentPage) && memAddress < ((numRows*numCols) * (currentPage+1));
+				var boxNum:int = memAddress % (numRows * numCols);
+				if ( isOnPage && boxNum < memoryBoxes.length ) {
+					var box:TextInput = memoryBoxes[ boxNum ];
+					box.setStyle( "borderStyle", "solid" );
+					box.setStyle( "borderThickness", 1.5 );
+					box.setStyle( "borderColor", "#ff0000" );
+					
+					
+					var toPos:Point = new Point( box.width/2, box.height );
+					var fromPos:Point = new Point( ipBox.width/2, 0 )
+					
+					toPos = box.contentToGlobal( toPos );
+					fromPos = ipBox.contentToGlobal( fromPos );
+					
+					toPos = internalViewOverlay.globalToContent( toPos );
+					fromPos = internalViewOverlay.globalToContent( fromPos );
+					
+					internalViewOverlay.graphics.clear();
+					internalViewOverlay.graphics.lineStyle( 2, 0xff0000, 0.5, false, "normal", "round" );
+					internalViewOverlay.graphics.moveTo( fromPos.x, fromPos.y );
+					internalViewOverlay.graphics.lineTo( toPos.x, toPos.y );
+				}
+				
+				ipBox.setStyle( "borderStyle", "solid" );
+				ipBox.setStyle( "borderThickness", 1 );
+				ipBox.setStyle( "borderColor", "#ff0000" );
+				
+			}
+			
+			private function hideIP( event:MouseEvent ):void {
+				for each ( var memBox:TextInput in memoryBoxes ) {
+					memBox.setStyle( "borderThickness", 1 );
+					memBox.setStyle( "borderColor", boxBorder );
+					memBox.setStyle( "borderStyle", "inset" );
+				}
+				
+				ipBox.setStyle( "borderThickness", 1 );
+				ipBox.setStyle( "borderColor", boxBorder );
+				ipBox.setStyle( "borderStyle", "inset" );
+				
+				internalViewOverlay.graphics.clear();
+			}		
+			
+			public function upload( instructions:Array ):void {
+				
+				var instructions:Array = instructions;
+				
+				this.uploadedState.reset( );
+				this.uploadedState.setAllMemory( instructions );
+				this.reset( );
+			}
+			
+			private function cellChangeHandler( event:Event ):void {
+				
+				
+				var textInput:TextInput = TextInput( event.currentTarget );
+				
+				var memoryCell:int = int( textInput.data );
+				var value:int = parseInt( textInput.text );
+				
+				//trace( value );
+				if ( isInitialState && !isNaN( value ) ) {
+					state.setMemory( memoryCell, value );
+				}
+				
+				textInput.text = state.getMemory( memoryCell ).toString();
+				textInput.horizontalScrollPosition = 0;
+			}
+			
+			private function clearCodeHandler( event:CloseEvent ):void {
+				if ( event.detail == Alert.YES ) {
+					codeEditor.clear( );
+				}
+			}
+			
+			private function popUp( toolWindow:ToolWindow ):void {
+				if ( toolWindow.isPopUp ) {	
+					PopUpManager.bringToFront( toolWindow );
+				} else {
+					PopUpManager.addPopUp( toolWindow, this, false );
+					PopUpManager.centerPopUp( toolWindow );
+				}
+			}
+			
+			private function handleMenuClick( event:ItemClickEvent ):void {
+				
+				
+				switch ( event.label ) {
+					case "Edit Program": popUp( codeEditor ); break;
+					
+					case "New Program": {
+						popUp( codeEditor );
+						
+						if ( codeEditor.codeBox.text != "" ) {
+							Alert.show( "This will clear the existing program. Continue?", "New Program", Alert.YES | Alert.NO, null, clearCodeHandler );
+						}
+					} break;
+					
+					case "Instruction Set": popUp( instructionSetViewer ); break;
+					
+					case "Processor Definition": {
+						popUp( definitionViewer );
+						definitionViewer.definition = definitionStr;
+					} break;
+				}
+			}
+			
+    	]]>
+    </mx:Script>	
+    
+    <mx:Parallel id="bellRing">
+   		<mx:Fade alphaFrom="1" alphaTo="0" duration="2000"/>
+		<mx:SoundEffect source="@Embed(source='../assets/ding.mp3')" duration="2000"/>
+    </mx:Parallel>
+    
+	
+	<mx:Fade id="LEDfade" alphaFrom="1" alphaTo="0" duration="100"/>
+	
+	
+	<!-- Background Image -->
+	<mx:Image
+		source="{boardBg}"
+		x="0"
+		y="0"
+		/>
+	
+	<!-- Bell -->
+	<mx:Image id="bellLED"
+		source="{BellOn}"
+		x="21"
+		y="197"
+		hideEffect="bellRing"
+		visible="false"
+		/>
+		
+	<!-- Fetch/Increment/Execute LEDS -->
+	<mx:Image id="fetchLED"
+		source="{FetchOn}"
+		x="267"
+		y="40"
+		hideEffect="LEDfade"
+		visible="false"
+		/>
+			
+	<mx:Image id="incrementLED"
+		source="{IncOn}"
+		x="358"
+		y="40"
+		hideEffect="LEDfade"
+		visible="false"
+		/>
+		
+	<mx:Image id = "executeLED"
+		source="{ExOn}"
+		x="429"
+		y="40"
+		hideEffect="LEDfade"
+		visible="false"
+		/>
+	
+	<mx:Label id="processorLabel"
+		x="325"
+		y="152"
+		styleName="chipStyle"
+		textAlign="center"
+		width="150"
+		/>
+		
+	<mx:Button id="onButton"
+		x="54"
+		y="56"
+		styleName="onButtonStyle"
+		click="togglePower();"
+		/>
+			
+	<mx:Button id="resetButton"
+		x="278"
+		y="308"
+		styleName="resetButtonStyle"
+		click="reset();"
+		/>
+		
+	<mx:Button id="runButton"
+		x="278"
+		y="250"
+		styleName="runButtonStyle"
+		click="run();"
+		/>
+			
+	<mx:Button id="stepButton"
+		x="417"
+		y="250"
+		styleName="stepButtonStyle"
+		click="step();"
+		/>
+		
+	<mx:TextArea id="outputTextArea"
+		x="55"
+		y="427"
+		
+		width="510"
+		height="93"
+		
+		styleName="LCD"
+		verticalScrollBarStyleName="LCDScrollBarStyle"
+		
+		editable="false"
+		
+		borderThickness="0"
+		borderStyle="none"
+		backgroundAlpha="0"
+		/>
+	
+	<mx:Image
+		id="arrowOverlay"
+		source="{ChipArrow}"
+		x="460"
+		y="115"
+		/>
+	
+	<mx:Canvas id="internalView"
+		x="466"
+		y="0"
+		>
+		
+		<mx:VBox
+			id="internalsContainer"
+			x="170"
+			y="20"
+			backgroundColor="#f0f0f0"
+			borderColor="black"
+			borderThickness="1"
+			borderStyle="solid"
+			paddingTop="0"
+			paddingLeft="4"
+			paddingRight="4"
+			paddingBottom="5"
+			horizontalAlign="center"
+			verticalGap="0"
+			horizontalGap="0"
+			>
+		
+		<mx:HBox
+			paddingTop="10"
+			verticalGap="0"
+			horizontalGap="0"
+			>
+			
+			<mx:VBox
+				id = "memoryAddressLabels"
+				paddingTop="1"
+				verticalGap="1"
+				>
+				<!-- memory Address Labels here -->
+			</mx:VBox>
+			
+			
+			<mx:Grid id="memoryGrid"
+				
+				width="{numCols * (boxWidth+1) + 1}"
+				height="{numRows * (boxHeight+1) + 1}"
+				paddingTop="1"
+				paddingBottom="0"
+				paddingLeft="1"
+				paddingRight="0"
+				horizontalGap="1"
+				verticalGap="1"
+				>
+				
+				<!-- Memory Cells are created in here -->
+				
+			</mx:Grid>	
+		
+		</mx:HBox>
+		
+		<mx:HBox
+			id="pageMenu"
+			height="40"
+			width="{mainRegisterContainer.width}"
+			verticalAlign="center"
+			
+			borderSides="top"
+			borderStyle="solid"
+			borderThickness="1"
+			>
+			
+			<!-- Pages Listed Here -->
+			
+		</mx:HBox>
+		
+		
+		<mx:Spacer height="10"/>
+		
+		<mx:HBox
+			id="mainRegisterContainer"
+			paddingRight="4"
+			width="100%"
+			>
+			<mx:Label
+				width="{registerLabelWidth}"
+				height="{registerBoxHeight}"
+				
+				text="IP:"
+				/>
+			<mx:TextInput id="ipBox"
+				width="{registerBoxWidth}"
+				height="{registerBoxHeight}"
+				mouseOver="showIP(event)"
+				mouseOut ="hideIP(event)"
+				/>
+			<mx:Label id="instructionStore"
+				
+				width="{registerLabelWidth}"
+				height="{registerBoxHeight}"
+				
+				text="IS:"
+				/>
+			<mx:TextInput id="isBox"
+				width="{registerBoxWidth}"
+				height="{registerBoxHeight}"
+				/>
+		</mx:HBox>
+		
+		<mx:Spacer height="10"/>
+		<mx:HRule width="100%"/>	
+		<mx:Spacer height="10"/>
+		
+		<mx:Tile id="registerValues"
+			width="100%"
+			>
+			
+			<!-- Other registers with names are added here -->
+			
+		</mx:Tile>
+		
+	
+		</mx:VBox>
+			
+	</mx:Canvas>
+	
+	
+	
+	<mx:Canvas id="internalViewOverlay"
+		x="466"
+		y="0"
+		width="{internalView.width}"
+		height="{internalView.height}"
+		>
+		
+	</mx:Canvas>
+	
+	
+	<mx:ApplicationControlBar
+		id="controlBar"
+		x="13"
+		y="610"
+		width="598"
+		horizontalAlign="center"
+		>
+		
+	<mx:VBox >
+		
+	<mx:ButtonBar 
+		itemClick="handleMenuClick(event)"
+		>
+		<mx:dataProvider>
+			<mx:Array>
+				<mx:String>Edit Program</mx:String>
+				<mx:String>New Program</mx:String>
+				<mx:String>Instruction Set</mx:String>
+				<!--<mx:String>Processor Definition</mx:String>-->
+			</mx:Array>
+		</mx:dataProvider>
+    </mx:ButtonBar>
+    
+    
+    <mx:HBox
+    	width="100%">
+		<mx:Label textAlign="center"
+			id="status" width="100%"/>
+	</mx:HBox>
+		
+    </mx:VBox>
+	</mx:ApplicationControlBar>
+	
+	<mx:Style>
+	    @font-face 
+	    {
+	        font-family: LCDDot;
+	
+	        src: url("../assets/lcddot.ttf");
+	        unicode-range:
+	            U+0020-U+0040, /* Punctuation, Numbers */
+	
+	            U+0041-U+005A, /* Upper-Case A-Z */
+	            U+005B-U+0060, /* Punctuation and Symbols */
+	            U+0061-U+007A, /* Lower-Case a-z */
+	            U+007B-U+007E; /* Punctuation and Symbols */
+	
+	    }
+	    
+	    @font-face
+	    {
+	    	font-family: LastWords;
+	    	src: url("../assets/last_words.ttf");
+	        unicode-range:
+	            U+0020-U+0040, /* Punctuation, Numbers */
+	
+	            U+0041-U+005A, /* Upper-Case A-Z */
+	            U+005B-U+0060, /* Punctuation and Symbols */
+	            U+0061-U+007A, /* Lower-Case a-z */
+	            U+007B-U+007E; /* Punctuation and Symbols */      	
+	    }
+	    
+	    .LCD 
+	    { 
+	        font-family: LCDDot; 
+	        font-size: 24pt;    
+	    }
+	    
+	    .chipStyle
+	    {
+	    	font-family: LastWords;
+	    	font-size: 14pt;
+	    	color: #BFBFBF;
+	    }
+	    
+	    .onButtonStyle
+	    {
+	    	skin: Embed("../assets/boardImgs/On_switch_54_56.png");
+	    }
+	    
+	    .resetButtonStyle
+	    {
+	    	skin: Embed("../assets/boardImgs/reset.png");
+	    	down-skin: Embed("../assets/boardImgs/Reset_Down_278_308.png");
+	    }
+	    
+	    .stepButtonStyle
+	    {
+	    	skin: Embed("../assets/boardImgs/step.png");
+	    	down-skin: Embed("../assets/boardImgs/Step_Down_417_250.png");
+	    }
+	    
+	    .runButtonStyle
+	    {
+	    	skin: Embed("../assets/boardImgs/run.png");
+	    	down-skin: Embed("../assets/boardImgs/Run_Down_278_250.png");
+	    }
+	    
+	    .LCDScrollBarStyle
+	    {
+	    	upArrowSkin: Embed("../assets/LCDUpArrow.png");
+	    	downArrowSkin: Embed("../assets/LCDDownArrow.png");
+	    	thumb-skin: Embed("../assets/LCDScrollThumb.png");
+	    	track-skin: Embed("../assets/LCDScrollTrack.png");
+	    }
+	
+	</mx:Style>
+	
+</mx:Canvas>
+
+
+
